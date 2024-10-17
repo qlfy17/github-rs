@@ -1,7 +1,7 @@
 use oauth2::AccessToken;
 use serde::Deserialize;
 
-use crate::{client::GithubClient, organization::Organization, Result};
+use crate::{client::Client, organization::Organization, Result};
 
 #[derive(Debug, Deserialize)]
 pub struct Team {
@@ -10,7 +10,7 @@ pub struct Team {
     pub organization: Organization,
 }
 
-impl GithubClient {
+impl Client {
     pub async fn team_by_name(
         &self,
         org_name: &str,

@@ -1,12 +1,15 @@
+use std::time::Duration;
+
 use oauth2::AccessToken;
-use reqwest::header;
+use reqwest::{header, RequestBuilder, Response};
 use serde::de::DeserializeOwned;
 use tracing::info;
 
 use crate::Result;
 
 #[derive(Debug)]
-pub struct GithubClient {
+pub struct Client {
+    // base_url: String,
     client: reqwest::Client,
 }
 
@@ -16,9 +19,38 @@ pub struct GithubClient {
 //     async fn org_by_name(&self, org_name: &str, auth: &AccessToken) -> Result<Organization>;
 // }
 
-impl GithubClient {
-    pub fn new(client: reqwest::Client) -> Self {
-        Self { client }
+pub trait IntoRequest {
+    fn into_request(self, client: reqwest::Client) -> RequestBuilder;
+}
+
+impl Client {
+    pub fn new(client: Option<reqwest::Client>) -> Self {
+        match client {
+            Some(client) => Self { client },
+            None => Self {
+                client: reqwest::Client::new(),
+            },
+        }
+    }
+
+    pub fn new_request(&self, req: impl IntoRequest) -> RequestBuilder {
+        let req = req.into_request(self.client.clone());
+        // req.bearer_auth(&self.token);
+        req.header(header::ACCEPT, "application/vnd.github.v3+json")
+            .header(header::USER_AGENT, "crates.io (https://crates.io)")
+            .timeout(Duration::from_secs(10))
+    }
+
+    pub async fn send<T>(&self, req: RequestBuilder) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        req.send()
+            .await?
+            .error_for_status()?
+            .json::<T>()
+            .await
+            .map_err(Into::into)
     }
 
     async fn _request<T>(&self, url: &str, auth: &str) -> Result<T>
